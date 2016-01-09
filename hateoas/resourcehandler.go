@@ -1,6 +1,7 @@
 package hateoas
 
 import (
+	"errors"
 	"net/http"
 )
 
@@ -40,4 +41,16 @@ type PatchNotSupported struct{}
 
 func (r *PatchNotSupported) Patch(id string) (Resource, int) {
 	return nil, http.StatusMethodNotAllowed
+}
+
+func NotFound() (Resource, int) {
+	return NewErrorResource(errors.New("The requested resource was not found")), http.StatusNotFound
+}
+
+func BadRequest(msg string) (Resource, int) {
+	return NewErrorResource(errors.New(msg)), http.StatusBadRequest
+}
+
+func Error(err error) (Resource, int) {
+	return NewErrorResource(err), http.StatusInternalServerError
 }

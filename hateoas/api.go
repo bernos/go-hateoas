@@ -19,17 +19,20 @@ func (api *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Request for %s, %s", r.RequestURI, r.URL.Path)
 
+	var resource Resource
+	var status int
+
 	if handler == nil {
-		http.NotFound(w, r)
+		// http.NotFound(w, r)
+		resource, status = NotFound()
 	} else {
-		r, s := handler.Get("asdf")
-
-		w.WriteHeader(s)
-
-		e := json.NewEncoder(w)
-		e.Encode(r)
-
+		resource, status = handler.Get("asdf")
 	}
+	w.WriteHeader(status)
+
+	e := json.NewEncoder(w)
+	e.Encode(resource)
+
 }
 
 func (api *Api) AddResourceHandler(path string, handler ResourceHandler) *Api {
