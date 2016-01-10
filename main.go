@@ -26,10 +26,17 @@ func (p *PersonHandler) Get(id string) (hateoas.Resource, int) {
 		Age:  27,
 	}
 
-	person.Links().Set("self", "/blllllaaah") //.SetBaseUrl("http://www.example.com")
-
 	return person, 200
+}
 
+func (p *PersonHandler) Index() ([]hateoas.Resource, int) {
+	people := make([]hateoas.Resource, 1)
+
+	people[0] = &Person{
+		Name: "Brendan",
+		Age:  123,
+	}
+	return people, http.StatusOK
 }
 
 type FooHandler struct {
@@ -43,7 +50,9 @@ type FooHandler struct {
 func main() {
 	// test(&PersonHandler{})
 	//	test(&FooHandler{})
-	http.Handle("/api/", hateoas.NewApi())
+	api := hateoas.NewApi()
+	api.AddResourceHandler("/person", &PersonHandler{})
+	http.HandleFunc("/", api.Handler("/"))
 	panic(http.ListenAndServe(":8080", nil))
 }
 

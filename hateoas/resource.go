@@ -18,3 +18,14 @@ func (r *ResourceBase) Links() *Links {
 	}
 	return r.resourceBase.Links
 }
+
+type ResourceCollection struct {
+	ResourceBase
+	Items []Resource `json:"items"`
+}
+
+func NewResourceCollection(items []Resource) *ResourceCollection {
+	return &ResourceCollection{
+		Items: items,
+	}
+}
