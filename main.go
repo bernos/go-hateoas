@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/bernos/go-hateoas/hateoas"
 	"net/http"
 )
@@ -20,7 +18,7 @@ type PersonHandler struct {
 	hateoas.PatchNotSupported
 }
 
-func (p *PersonHandler) Get(id string) (hateoas.Resource, int) {
+func (p *PersonHandler) Get(id string, req *http.Request) (hateoas.Resource, int) {
 	person := &Person{
 		Name: id,
 		Age:  27,
@@ -29,7 +27,7 @@ func (p *PersonHandler) Get(id string) (hateoas.Resource, int) {
 	return person, 200
 }
 
-func (p *PersonHandler) Index() ([]hateoas.Resource, int) {
+func (p *PersonHandler) Index(req *http.Request) ([]hateoas.Resource, int) {
 	people := make([]hateoas.Resource, 1)
 
 	people[0] = &Person{
@@ -54,12 +52,4 @@ func main() {
 	api.AddResourceHandler("/person", &PersonHandler{})
 	http.HandleFunc("/", api.Handler("/"))
 	panic(http.ListenAndServe(":8080", nil))
-}
-
-func test(h hateoas.ResourceHandler) {
-	r, s := h.Get("bernos")
-	j, _ := json.Marshal(r)
-
-	fmt.Printf("%s, %d", j, s)
-
 }

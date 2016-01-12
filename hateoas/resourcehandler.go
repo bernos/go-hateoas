@@ -6,41 +6,41 @@ import (
 )
 
 type ResourceHandler interface {
-	Index() ([]Resource, int)
-	Get(id string) (Resource, int)
-	Post() (Resource, int)
-	Put(id string) (Resource, int)
-	Delete(id string) (Resource, int)
-	Patch(id string) (Resource, int)
+	Index(req *http.Request) ([]Resource, int)
+	Get(id string, req *http.Request) (Resource, int)
+	Post(req *http.Request) (Resource, int)
+	Put(id string, req *http.Request) (Resource, int)
+	Delete(id string, req *http.Request) (Resource, int)
+	Patch(id string, req *http.Request) (Resource, int)
 }
 
 type GetNotSupported struct{}
 
-func (r *GetNotSupported) Get(id string) (Resource, int) {
+func (r *GetNotSupported) Get(id string, req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 
 type PostNotSupported struct{}
 
-func (r *PostNotSupported) Post() (Resource, int) {
+func (r *PostNotSupported) Post(req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 
 type PutNotSupported struct{}
 
-func (r *PutNotSupported) Put(id string) (Resource, int) {
+func (r *PutNotSupported) Put(id string, req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 
 type DeleteNotSupported struct{}
 
-func (r *DeleteNotSupported) Delete(id string) (Resource, int) {
+func (r *DeleteNotSupported) Delete(id string, req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 
 type PatchNotSupported struct{}
 
-func (r *PatchNotSupported) Patch(id string) (Resource, int) {
+func (r *PatchNotSupported) Patch(id string, req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 

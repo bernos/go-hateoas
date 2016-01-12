@@ -21,31 +21,6 @@ func NewApi() *Api {
 	}
 }
 
-func (api *Api) buildGetHandler(handler ResourceHandler) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		id := p.ByName("id")
-		resource, status := handler.Get(id)
-
-		if resource != nil {
-			resource.Links().Set("self", r.URL.String())
-		}
-
-		api.send(w, resource, status)
-	}
-}
-
-func (api *Api) buildIndexHandler(handler ResourceHandler) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		resources, status := handler.Index()
-		if resources != nil {
-			for i, _ := range resources {
-				resources[i].Links().Set("self", "asdf")
-			}
-		}
-		api.send(w, NewResourceCollection(resources), status)
-	}
-}
-
 func (api *Api) Handler(basePath string) func(w http.ResponseWriter, r *http.Request) {
 	// Set up router
 	api.basePath = basePath
@@ -74,6 +49,40 @@ func (api *Api) Handler(basePath string) func(w http.ResponseWriter, r *http.Req
 func (api *Api) AddResourceHandler(path string, handler ResourceHandler) *Api {
 	api.handlers[path] = handler
 	return api
+}
+
+func (api *Api) buildGetHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		id := p.ByName("id")
+		resource, status := handler.Get(id, r)
+
+		if resource != nil {
+			resource.Links().Set("self", r.URL.String())
+		}
+
+		api.send(w, resource, status)
+	}
+}
+
+func (api *Api) buildIndexHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		resources, status := handler.Index(r)
+		if resources != nil {
+			for i, _ := range resources {
+				resources[i].Links().Set("self", "asdf")
+			}
+		}
+		api.send(w, NewResourceCollection(resources), status)
+	}
+}
+
+func (api *Api) buildPostHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		// TODO: Build resource from request body
+		// resource, status := handler.Post()
+
+		// TODO: Set location header
+	}
 }
 
 func (api *Api) resolveResourceHandler(path string) ResourceHandler {
