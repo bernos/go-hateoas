@@ -20,6 +20,12 @@ func (r *GetNotSupported) Get(id string, req *http.Request) (Resource, int) {
 	return MethodNotAllowed()
 }
 
+type IndexNotSupported struct{}
+
+func (r *IndexNotSupported) Index(req *http.Request) ([]Resource, int) {
+	return []Resource{NewErrorResource(errors.New("Method not allowed"))}, http.StatusMethodNotAllowed
+}
+
 type PostNotSupported struct{}
 
 func (r *PostNotSupported) Post(req *http.Request) (Resource, int) {

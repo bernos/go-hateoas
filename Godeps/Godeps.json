@@ -1,9 +1,6 @@
 {
 	"ImportPath": "github.com/bernos/go-hateoas",
-	"GoVersion": "go1.5.2",
-	"Packages": [
-		"./..."
-	],
+	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/julienschmidt/httprouter",

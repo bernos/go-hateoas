@@ -1,115 +1,161 @@
 package hateoas
 
 import (
-	"encoding/json"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"path"
+	"reflect"
 	"strings"
 )
 
-type Api struct {
+type Api interface {
+	http.Handler
+	BasePath() string
+	AddResourceHandler(string, ResourceHandler) Api
+	LinkTo(ResourceHandler) *Link
+}
+
+type httprouterApi struct {
 	handlers map[string]ResourceHandler
 	router   *httprouter.Router
 	basePath string
 }
 
-func NewApi() *Api {
-	return &Api{
+func NewApi(basePath string) *httprouterApi {
+	api := &httprouterApi{
 		router:   httprouter.New(),
 		handlers: make(map[string]ResourceHandler),
-	}
-}
-
-func (api *Api) Handler(basePath string) func(w http.ResponseWriter, r *http.Request) {
-	// Set up router
-	api.basePath = basePath
-
-	for p, h := range api.handlers {
-		hp := path.Join(basePath, p)
-		api.router.GET(path.Join(hp, ":id"), api.buildGetHandler(h))
-		api.router.GET(hp, api.buildIndexHandler(h))
+		basePath: basePath,
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		if api.isMethodSupported(r.Method) {
-			h, p, _ := api.router.Lookup(r.Method, r.URL.Path)
+	// Add api to package api collection so that we
+	// can look up handlers in hateoas.LinkTo()
+	apis = append(apis, api)
 
-			if h == nil {
-				api.sendNotFound(w)
-			} else {
-				h(w, r, p)
-			}
-		} else {
-			api.sendMethodNotAllowed(w)
-		}
-	}
-}
-
-func (api *Api) AddResourceHandler(path string, handler ResourceHandler) *Api {
-	api.handlers[path] = handler
 	return api
 }
 
-func (api *Api) buildGetHandler(handler ResourceHandler) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		id := p.ByName("id")
-		resource, status := handler.Get(id, r)
+func (api *httprouterApi) BasePath() string {
+	return api.basePath
+}
 
-		if resource != nil {
-			resource.Links().Set("self", r.URL.String())
+func (api *httprouterApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if api.isMethodSupported(r.Method) {
+		h, p, _ := api.router.Lookup(r.Method, r.URL.Path)
+
+		if h == nil {
+			SendNotFound(w)
+		} else {
+			h(w, r, p)
 		}
-
-		api.send(w, resource, status)
+	} else {
+		SendMethodNotAllowed(w)
 	}
 }
 
-func (api *Api) buildIndexHandler(handler ResourceHandler) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		resources, status := handler.Index(r)
-		if resources != nil {
-			for i, _ := range resources {
-				resources[i].Links().Set("self", "asdf")
+func (api *httprouterApi) AddResourceHandler(p string, handler ResourceHandler) Api {
+	api.handlers[p] = handler
+
+	collectionPath := path.Join(api.basePath, p)
+	resourcePath := path.Join(collectionPath, ":id")
+
+	api.router.GET(resourcePath, api.buildGetHandler(handler))
+	api.router.GET(collectionPath, api.buildIndexHandler(handler))
+	api.router.POST(collectionPath, api.buildPostHandler(handler))
+	api.router.PUT(resourcePath, api.buildPutHandler(handler))
+	api.router.PATCH(resourcePath, api.buildPatchHandler(handler))
+	api.router.DELETE(resourcePath, api.buildDeleteHandler(handler))
+
+	return api
+}
+
+func (api *httprouterApi) LinkTo(h ResourceHandler) *Link {
+	t := reflect.TypeOf(h)
+	for p, r := range api.handlers {
+		if reflect.TypeOf(r) == t {
+			return &Link{
+				Rel:  "self",
+				Href: path.Join(api.basePath, p),
 			}
 		}
-		api.send(w, NewResourceCollection(resources), status)
+	}
+	return nil
+}
+
+func (api *httprouterApi) buildGetHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		id := p.ByName("id")
+
+		if len(id) == 0 {
+			SendBadRequest(w, "id parameter not supplied")
+		} else {
+			resource, status := handler.Get(id, r)
+			Send(w, resource, status)
+		}
 	}
 }
 
-func (api *Api) buildPostHandler(handler ResourceHandler) httprouter.Handle {
+func (api *httprouterApi) buildIndexHandler(handler ResourceHandler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		// TODO: Build resource from request body
-		// resource, status := handler.Post()
+		resources, status := handler.Index(r)
+		Send(w, NewResourceCollection(resources), status)
+	}
+}
+
+func (api *httprouterApi) buildPostHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		resource, status := handler.Post(r)
+
+		Send(w, resource, status)
 
 		// TODO: Set location header
 	}
 }
 
-func (api *Api) resolveResourceHandler(path string) ResourceHandler {
-	return nil
+func (api *httprouterApi) buildPutHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		id := p.ByName("id")
+
+		if len(id) == 0 {
+			SendBadRequest(w, "id parameter not supplied")
+		} else {
+			resource, status := handler.Put(id, r)
+			Send(w, resource, status)
+		}
+	}
 }
 
-func (api *Api) send(w http.ResponseWriter, resource Resource, status int) {
-	w.WriteHeader(status)
-	e := json.NewEncoder(w)
-	e.Encode(resource)
+func (api *httprouterApi) buildPatchHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		id := p.ByName("id")
+
+		if len(id) == 0 {
+			SendBadRequest(w, "id parameter not supplied")
+		} else {
+			resource, status := handler.Patch(id, r)
+			Send(w, resource, status)
+		}
+	}
 }
 
-func (api *Api) isMethodSupported(method string) bool {
+func (api *httprouterApi) buildDeleteHandler(handler ResourceHandler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		id := p.ByName("id")
+
+		if len(id) == 0 {
+			SendBadRequest(w, "id parameter not supplied")
+		} else {
+			resource, status := handler.Delete(id, r)
+			Send(w, resource, status)
+		}
+	}
+}
+
+func (api *httprouterApi) isMethodSupported(method string) bool {
 	m := strings.ToLower(method)
 	return m == "get" ||
 		m == "post" ||
 		m == "put" ||
 		m == "patch" ||
 		m == "delete"
-}
-
-func (api *Api) sendNotFound(w http.ResponseWriter) {
-	resource, status := NotFound()
-	api.send(w, resource, status)
-}
-
-func (api *Api) sendMethodNotAllowed(w http.ResponseWriter) {
-	resource, status := MethodNotAllowed()
-	api.send(w, resource, status)
 }
